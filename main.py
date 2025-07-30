@@ -1,625 +1,1199 @@
-from tkinter import *
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, colorchooser
 import os
-import ctypes
-from PIL import Image, ImageFilter, ImageColor, ImageDraw
-from PIL import ImageTk
-from PIL import ImageOps
-import imghdr
-from collections import *
-from tkinter import filedialog
-from tkinter import messagebox
-from tkinter import ttk
-import threading
-def drawOnImage(canvas):
-    style = ttk.Style()
-    style.map("C.TButton",foreground=[('pressed', 'red'), ('active', 'blue')],background=[('pressed', '!disabled', 'black'), ('active', 'white')])
-    style.configure('TButton', font=('calibri', 23, 'bold'),borderwidth='1')
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = True
-    drawWindow = Toplevel(canvas.data.mainWindow)
-    drawWindow.title = "Draw"
-    drawFrame = Frame(drawWindow)
-    redButton = ttk.Button(drawFrame, bg="red", width=2,command=lambda: colourChosen(drawWindow, canvas, "red"))
-    redButton.grid(row=0, column=0)
-    blueButton = ttk.Button(drawFrame, bg="blue", width=2, command=lambda: colourChosen(drawWindow, canvas, "blue"))
-    blueButton.grid(row=0, column=1)
-    greenButton = Button(drawFrame, bg="green", width=2, command=lambda: colourChosen(drawWindow, canvas, "green"))
-    greenButton.grid(row=0, column=2)
-    magentaButton = Button(drawFrame, bg="magenta", width=2, command=lambda: colourChosen(drawWindow, canvas, "magenta"))
-    magentaButton.grid(row=1, column=0)
-    cyanButton = Button(drawFrame, bg="cyan", width=2, command=lambda: colourChosen(drawWindow, canvas, "cyan"))
-    cyanButton.grid(row=1, column=1)
-    yellowButton = Button(drawFrame, bg="yellow", width=2, command=lambda: colourChosen(drawWindow, canvas, "yellow"))
-    yellowButton.grid(row=1, column=2)
-    orangeButton = Button(drawFrame, bg="orange", width=2, command=lambda: colourChosen(drawWindow, canvas, "orange"))
-    orangeButton.grid(row=2, column=0)
-    purpleButton = Button(drawFrame, bg="purple", width=2,command=lambda: colourChosen(drawWindow, canvas, "purple"))
-    purpleButton.grid(row=2, column=1)
-    brownButton = Button(drawFrame, bg="brown", width=2, command=lambda: colourChosen(drawWindow, canvas, "brown"))
-    brownButton.grid(row=2, column=2)
-    blackButton = Button(drawFrame, bg="black", width=2, command=lambda: colourChosen(drawWindow, canvas, "black"))
-    blackButton.grid(row=3, column=0)
-    whiteButton = Button(drawFrame, bg="white", width=2, command=lambda: colourChosen(drawWindow, canvas, "white"))
-    whiteButton.grid(row=3, column=1)
-    grayButton = Button(drawFrame, bg="gray", width=2,command=lambda: colourChosen(drawWindow, canvas, "gray"))
-    grayButton.grid(row=3, column=2)
-    drawFrame.pack(side=BOTTOM)
-def colourChosen(drawWindow, canvas, colour):
-    if canvas.data.image != None:
-        canvas.data.drawColour = colour
-        canvas.data.mainWindow.bind("<B1-Motion>",lambda event: drawDraw(event, canvas))
-    drawWindow.destroy()
-def drawDraw(event, canvas):
-    if canvas.data.drawOn == True:
-        x = int(round((event.x - canvas.data.imageTopX) * canvas.data.imageScale))
-        y = int(round((event.y - canvas.data.imageTopY) * canvas.data.imageScale))
-        draw = ImageDraw.Draw(canvas.data.image)
-        draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=canvas.data.drawColour,outline=None)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def closeHistWindow(canvas):
-    if canvas.data.image != None:
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.histWindowClose = True
-def histogram(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    histWindow = Toplevel(canvas.data.mainWindow)
-    histWindow.title("Histogram")
-    canvas.data.histCanvasWidth = 350
-    canvas.data.histCanvasHeight = 475
-    histCanvas = Canvas(histWindow, width=canvas.data.histCanvasWidth,height=canvas.data.histCanvasHeight)
-    histCanvas.pack()
-    redSlider = Scale(histWindow, from_=-100, to=100, orient=HORIZONTAL, label="R")
-    redSlider.pack()
-    blueSlider = Scale(histWindow, from_=-100, to=100, orient=HORIZONTAL, label="B")
-    blueSlider.pack()
-    greenSlider = Scale(histWindow, from_=-100, to=100, orient=HORIZONTAL, label="G")
-    greenSlider.pack()
-    OkHistFrame = Frame(histWindow)
-    OkHistButton = Button(OkHistFrame, text="OK", command=lambda: closeHistWindow(canvas))
-    OkHistButton.grid(row=0, column=0)
-    OkHistFrame.pack(side=BOTTOM)
-    initialRGB = (0, 0, 0)
-    changeColours(canvas, redSlider, blueSlider,greenSlider, histWindow, histCanvas, initialRGB)
-def changeColours(canvas, redSlider, blueSlider,greenSlider, histWindow, histCanvas, previousRGB):
-    if canvas.data.histWindowClose == True:
-        histWindow.destroy()
-        canvas.data.histWindowClose = False
-    else:
-        if canvas.data.image != None and histWindow.winfo_exists():
-            R, G, B = canvas.data.image.split()
-            sliderValR = redSlider.get()
-            (previousR, previousG, previousB) = previousRGB
-            scaleR = (sliderValR - previousR) / 100.0
-            R = R.point(lambda i: i + int(round(i * scaleR)))
-            sliderValG = greenSlider.get()
-            scaleG = (sliderValG - previousG) / 100.0
-            G = G.point(lambda i: i + int(round(i * scaleG)))
-            sliderValB = blueSlider.get()
-            scaleB = (sliderValB - previousB) / 100.0
-            B = B.point(lambda i: i + int(round(i * scaleB)))
-            canvas.data.image = Image.merge(canvas.data.image.mode, (R, G, B))
-            canvas.data.imageForTk = makeImageForTk(canvas)
-            drawImage(canvas)
-            displayHistogram(canvas, histWindow, histCanvas)
-            previousRGB = (sliderValR, sliderValG, sliderValB)
-            canvas.after(200, lambda: changeColours(canvas, redSlider,blueSlider, greenSlider, histWindow, histCanvas, previousRGB))
-def displayHistogram(canvas, histWindow, histCanvas):
-    histCanvasWidth = canvas.data.histCanvasWidth
-    histCanvasHeight = canvas.data.histCanvasHeight
-    margin = 50
-    if canvas.data.image != None:
-        histCanvas.delete(ALL)
-        im = canvas.data.image
-        # x-axis
-        histCanvas.create_line(margin - 1, histCanvasHeight - margin + 1,margin - 1 + 258, histCanvasHeight - margin + 1)
-        xmarkerStart = margin - 1
-        for i in range(0, 257, 64):
-            xmarker = "%d" % (i)
-            histCanvas.create_text(xmarkerStart + i,histCanvasHeight - margin + 7, text=xmarker)
-        histCanvas.create_line(margin - 1,histCanvasHeight - margin + 1, margin - 1, margin)
-        ymarkerStart = histCanvasHeight - margin + 1
-        for i in range(0, histCanvasHeight - 2 * margin + 1, 50):
-            ymarker = "%d" % (i)
-            histCanvas.create_text(margin - 1 - 10,ymarkerStart - i, text=ymarker)
-        R, G, B = im.histogram()[:256], im.histogram()[256:512],im.histogram()[512:768]
-        for i in range(len(R)):
-            pixelNo = R[i]
-            histCanvas.create_oval(i + margin,histCanvasHeight - pixelNo / 100.0 - 1 - margin, i + 2 + margin,histCanvasHeight - pixelNo / 100.0 + 1 - margin,fill="red", outline="red")
-        for i in range(len(G)):
-            pixelNo = G[i]
-            histCanvas.create_oval(i + margin, \
-                                   histCanvasHeight - pixelNo / 100.0 - 1 - margin, i + 2 + margin,histCanvasHeight - pixelNo / 100.0 + 1 - margin,fill="green", outline="green")
-        for i in range(len(B)):
-            pixelNo = B[i]
-            histCanvas.create_oval(i + margin, \
-                                   histCanvasHeight - pixelNo / 100.0 - 1 - margin, i + 2 + margin,histCanvasHeight - pixelNo / 100.0 + 1 - margin,fill="blue", outline="blue")
-def colourPop(canvas):
-    canvas.data.cropPopToHappen = False
-    canvas.data.colourPopToHappen = True
-    canvas.data.drawOn = False
-    messagebox.showinfo(title="Colour Pop", message="Click on a part of the image which you want in colour",parent=canvas.data.mainWindow)
-    if canvas.data.cropPopToHappen == False:
-        canvas.data.mainWindow.bind("<ButtonPress-1>", lambda event: getPixel(event, canvas))
-def getPixel(event, canvas):
-    try:
-        if canvas.data.colourPopToHappen == True and \
-                canvas.data.cropPopToHappen == False and canvas.data.image != None:
-            data = []
-            canvas.data.pixelx = \
-                int(round((event.x - canvas.data.imageTopX) * canvas.data.imageScale))
-            canvas.data.pixely = \
-                int(round((event.y - canvas.data.imageTopY) * canvas.data.imageScale))
-            pixelr, pixelg, pixelb = \
-                canvas.data.image.getpixel((canvas.data.pixelx, canvas.data.pixely))
-            tolerance = 60
-            for y in range(canvas.data.image.size[1]):
-                for x in range(canvas.data.image.size[0]):
-                    r, g, b = canvas.data.image.getpixel((x, y))
-                    avg = int(round((r + g + b) / 3.0))
-                    if (abs(r - pixelr) > tolerance or
-                            abs(g - pixelg) > tolerance or
-                            abs(b - pixelb) > tolerance):
-                        R, G, B = avg, avg, avg
-                    else:
-                        R, G, B = r, g, b
-                    data.append((R, G, B))
-            canvas.data.image.putdata(data)
-            save(canvas)
-            canvas.data.undoQueue.append(canvas.data.image.copy())
-            canvas.data.imageForTk = makeImageForTk(canvas)
-            drawImage(canvas)
-    except:
-        pass
-    canvas.data.colourPopToHappen = False
-def crop(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.drawOn = False
-    canvas.data.cropPopToHappen = True
-    messagebox.showinfo(title="Crop",message="Draw cropping rectangle and press Enter",parent=canvas.data.mainWindow)
-    if canvas.data.image != None:
-        canvas.data.mainWindow.bind("<ButtonPress-1>", lambda event: startCrop(event, canvas))
-        canvas.data.mainWindow.bind("<B1-Motion>", lambda event: drawCrop(event, canvas))
-        canvas.data.mainWindow.bind("<ButtonRelease-1>", lambda event: endCrop(event, canvas))
-def startCrop(event, canvas):
-    # detects the start of the crop rectangle
-    if canvas.data.endCrop == False and canvas.data.cropPopToHappen == True:
-        canvas.data.startCropX = event.x
-        canvas.data.startCropY = event.y
-def drawCrop(event, canvas):
-    if canvas.data.endCrop == False and canvas.data.cropPopToHappen == True:
-        canvas.data.tempCropX = event.x
-        canvas.data.tempCropY = event.y
-        canvas.create_rectangle(canvas.data.startCropX, canvas.data.startCropYcanvas.data.tempCropX, canvas.data.tempCropY, fill="gray", stipple="gray12", width=0)
-def endCrop(event, canvas):
-    if canvas.data.cropPopToHappen == True:
-        canvas.data.endCrop = True
-        canvas.data.endCropX = event.x
-        canvas.data.endCropY = event.y
-        canvas.create_rectangle(canvas.data.startCropX, canvas.data.startCropYcanvas.data.endCropX, canvas.data.endCropY, fill="gray", stipple="gray12", width=0)
-        canvas.data.mainWindow.bind("<Return>",lambda event: performCrop(event, canvas))
-def performCrop(event, canvas):
-    canvas.data.image = \
-        canvas.data.image.crop((int(round((canvas.data.startCropX - canvas.data.imageTopX) * canvas.data.imageScale)),
-             int(round((canvas.data.startCropY - canvas.data.imageTopY) * canvas.data.imageScale)),
-             int(round((canvas.data.endCropX - canvas.data.imageTopX) * canvas.data.imageScale)),
-             int(round((canvas.data.endCropY - canvas.data.imageTopY) * canvas.data.imageScale))))
-    canvas.data.endCrop = False
-    canvas.data.cropPopToHappen = False
-    save(canvas)
-    canvas.data.undoQueue.append(canvas.data.image.copy())
-    canvas.data.imageForTk = makeImageForTk(canvas)
-    drawImage(canvas)
-def rotateFinished(canvas, rotateWindow, rotateSlider, previousAngle):
-    if canvas.data.rotateWindowClose == True:
-        rotateWindow.destroy()
-        canvas.data.rotateWindowClose = False
-    else:
-        if canvas.data.image != None and rotateWindow.winfo_exists():
-            canvas.data.angleSelected = rotateSlider.get()
-            if canvas.data.angleSelected != None and canvas.data.angleSelected != previousAngle:
-                canvas.data.image = canvas.data.image.rotate(float(canvas.data.angleSelected))
-                canvas.data.imageForTk = makeImageForTk(canvas)
-                drawImage(canvas)
-        canvas.after(200, lambda: rotateFinished(canvas,rotateWindow, rotateSlider, canvas.data.angleSelected))
-def closeRotateWindow(canvas):
-    if canvas.data.image != None:
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.rotateWindowClose = True
-def rotate(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    rotateWindow = Toplevel(canvas.data.mainWindow)
-    rotateWindow.title("Rotate")
-    rotateSlider = Scale(rotateWindow, from_=0, to=360, orient=HORIZONTAL)
-    rotateSlider.pack()
-    OkRotateFrame = Frame(rotateWindow)
-    OkRotateButton = Button(OkRotateFrame, text="OK", command=lambda: closeRotateWindow(canvas))
-    OkRotateButton.grid(row=0, column=0)
-    OkRotateFrame.pack(side=BOTTOM)
-    rotateFinished(canvas, rotateWindow, rotateSlider, 0)
-def closeBrightnessWindow(canvas):
-    if canvas.data.image != None:
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.brightnessWindowClose = True
-def changeBrightness(canvas, brightnessWindow, brightnessSlider, previousVal):
-    if canvas.data.brightnessWindowClose == True:
-        brightnessWindow.destroy()
-        canvas.data.brightnessWindowClose = False
-    else:
-        if canvas.data.image != None and brightnessWindow.winfo_exists():
-            sliderVal = brightnessSlider.get()
-            scale = (sliderVal - previousVal) / 100.0
-            canvas.data.image = canvas.data.image.point(lambda i: i + int(round(i * scale)))
-            canvas.data.imageForTk = makeImageForTk(canvas)
-            drawImage(canvas)
-            canvas.after(200,lambda: changeBrightness(canvas, brightnessWindow,brightnessSlider, sliderVal))
-def brightness(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    brightnessWindow = Toplevel(canvas.data.mainWindow)
-    brightnessWindow.title("Brightness")
-    brightnessSlider = Scale(brightnessWindow, from_=-100, to=100,orient=HORIZONTAL)
-    brightnessSlider.pack()
-    OkBrightnessFrame = Frame(brightnessWindow)
-    OkBrightnessButton = Button(OkBrightnessFrame, text="OK",command=lambda: closeBrightnessWindow(canvas))
-    OkBrightnessButton.grid(row=0, column=0)
-    OkBrightnessFrame.pack(side=BOTTOM)
-    changeBrightness(canvas, brightnessWindow, brightnessSlider, 0)
-    brightnessSlider.set(0)
-def reset(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        canvas.data.image = canvas.data.originalImage.copy()
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def mirror(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        canvas.data.image = ImageOps.mirror(canvas.data.image)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def flip(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        canvas.data.image = ImageOps.flip(canvas.data.image)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def transpose(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        imageData = list(canvas.data.image.getdata())
-        newData = []
-        newimg = Image.new(canvas.data.image.mode, (canvas.data.image.size[1], canvas.data.image.size[0]))
-        for i in range(canvas.data.image.size[0]):
-            addrow = []
-            for j in range(i, len(imageData), canvas.data.image.size[0]):
-                addrow.append(imageData[j])
-            addrow.reverse()
-            newData += addrow
-        newimg.putdata(newData)
-        canvas.data.image = newimg.copy()
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def covertGray(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        data = []
-        for col in range(canvas.data.image.size[1]):
-            for row in range(canvas.data.image.size[0]):
-                r, g, b = canvas.data.image.getpixel((row, col))
-                avg = int(round((r + g + b) / 3.0))
-                R, G, B = avg, avg, avg
-                data.append((R, G, B))
-        canvas.data.image.putdata(data)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def sepia(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        sepiaData = []
-        for col in range(canvas.data.image.size[1]):
-            for row in range(canvas.data.image.size[0]):
-                r, g, b = canvas.data.image.getpixel((row, col))
-                avg = int(round((r + g + b) / 3.0))
-                R, G, B = avg + 100, avg + 50, avg
-                sepiaData.append((R, G, B))
-        canvas.data.image.putdata(sepiaData)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def invert(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    if canvas.data.image != None:
-        canvas.data.image = ImageOps.invert(canvas.data.image)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def solarize(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    solarizeWindow = Toplevel(canvas.data.mainWindow)
-    solarizeWindow.title("Solarize")
-    solarizeSlider = Scale(solarizeWindow, from_=0, to=255, orient=HORIZONTAL)
-    solarizeSlider.pack()
-    OkSolarizeFrame = Frame(solarizeWindow)
-    OkSolarizeButton = Button(OkSolarizeFrame, text="OK",command=lambda: closeSolarizeWindow(canvas))
-    OkSolarizeButton.grid(row=0, column=0)
-    OkSolarizeFrame.pack(side=BOTTOM)
-    performSolarize(canvas, solarizeWindow, solarizeSlider, 255)
-def performSolarize(canvas, solarizeWindow, solarizeSlider, previousThreshold):
-    if canvas.data.solarizeWindowClose == True:
-        solarizeWindow.destroy()
-        canvas.data.solarizeWindowClose = False
-    else:
-        if solarizeWindow.winfo_exists():
-            sliderVal = solarizeSlider.get()
-            threshold_ = 255 - sliderVal
-            if canvas.data.image != None and threshold_ != previousThreshold:
-                canvas.data.image = ImageOps.solarize(canvas.data.image,threshold=threshold_)
-                canvas.data.imageForTk = makeImageForTk(canvas)
-                drawImage(canvas)
-            canvas.after(200, lambda: performSolarize(canvas,solarizeWindow, solarizeSlider, threshold_))
-def closeSolarizeWindow(canvas):
-    if canvas.data.image != None:
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.solarizeWindowClose = True
-def posterize(canvas):
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.drawOn = False
-    posterData = []
-    if canvas.data.image != None:
-        for col in range(canvas.data.imageSize[1]):
-            for row in range(canvas.data.imageSize[0]):
-                r, g, b = canvas.data.image.getpixel((row, col))
-                if r in range(32):
-                    R = 0
-                elif r in range(32, 96):
-                    R = 64
-                elif r in range(96, 160):
-                    R = 128
-                elif r in range(160, 224):
-                    R = 192
-                elif r in range(224, 256):
-                    R = 255
-                if g in range(32):
-                    G = 0
-                elif g in range(32, 96):
-                    G = 64
-                elif g in range(96, 160):
-                    G = 128
-                elif r in range(160, 224):
-                    g = 192
-                elif r in range(224, 256):
-                    G = 255
-                if b in range(32):
-                    B = 0
-                elif b in range(32, 96):
-                    B = 64
-                elif b in range(96, 160):
-                    B = 128
-                elif b in range(160, 224):
-                    B = 192
-                elif b in range(224, 256):
-                    B = 255
-                posterData.append((R, G, B))
-        canvas.data.image.putdata(posterData)
-        save(canvas)
-        canvas.data.undoQueue.append(canvas.data.image.copy())
-        canvas.data.imageForTk = makeImageForTk(canvas)
-        drawImage(canvas)
-def keyPressed(canvas, event):
-    if event.keysym == "z":
-        undo(canvas)
-    elif event.keysym == "y":
-        redo(canvas)
-def undo(canvas):
-    if len(canvas.data.undoQueue) > 0:
-        lastImage = canvas.data.undoQueue.pop()
-        canvas.data.redoQueue.appendleft(lastImage)
-    if len(canvas.data.undoQueue) > 0:
-        canvas.data.image = canvas.data.undoQueue[-1]
-    save(canvas)
-    canvas.data.imageForTk = makeImageForTk(canvas)
-    drawImage(canvas)
-def redo(canvas):
-    if len(canvas.data.redoQueue) > 0:
-        canvas.data.image = canvas.data.redoQueue[0]
-    save(canvas)
-    if len(canvas.data.redoQueue) > 0:
-        lastImage = canvas.data.redoQueue.popleft()
-        canvas.data.undoQueue.append(lastImage)
-    canvas.data.imageForTk = makeImageForTk(canvas)
-    drawImage(canvas)
-def saveAs(canvas):
-    if canvas.data.image != None:
-        filename = asksaveasfilename(defaultextension=".jpg")
-        im = canvas.data.image
-        im.save(filename)
-def save(canvas):
-    if canvas.data.image != None:
-        im = canvas.data.image
-        im.save(canvas.data.imageLocation)
-def newImage(canvas):
-    def call():
-        while True:
-            name = str(input("Name of the Photo : "))
-            if name:
-                imageName = name
-                filetype = ""
-                # make sure it's an image file
-                try:
-                    filetype = imghdr.what(imageName)
-                except:
-                    messagebox.showinfo(title="Image File",message="Choose an Image File!", parent=canvas.data.mainWindow)
-                # restrict filetypes to .jpg, .bmp, etc.
-                if filetype in ['jpeg', 'bmp', 'png', 'tiff']:
-                    canvas.data.imageLocation = imageName
-                    im = Image.open(name)
-                    canvas.data.image = im
-                    canvas.data.originalImage = im.copy()
-                    canvas.data.undoQueue.append(im.copy())
-                    canvas.data.imageSize = im.size  # Original Image dimensions
-                    canvas.data.imageForTk = makeImageForTk(canvas)
-                    drawImage(canvas)
-                else:
-                    messagebox.showinfo(title="Image File",message="Choose an Image File!", parent=canvas.data.mainWindow)
-    threading.Thread(target=call).start()
-def makeImageForTk(canvas):
-    im = canvas.data.image
-    if canvas.data.image != None:
-        imageWidth = canvas.data.image.size[0]
-        imageHeight = canvas.data.image.size[1]
-        if imageWidth > imageHeight:
-            resizedImage = im.resize((canvas.data.width,int(round(float(imageHeight) * canvas.data.width / imageWidth))))
-            canvas.data.imageScale = float(imageWidth) / canvas.data.width
+from PIL import Image, ImageTk, ImageFilter, ImageEnhance, ImageOps, ImageDraw
+from collections import deque
+import numpy as np
+
+class ImageEditor:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Ignora Pro - Image Editor")
+        self.root.geometry("1200x800")
+        self.root.configure(bg='#2c3e50')
+        
+        # Variables
+        self.current_image = None
+        self.original_image = None
+        self.display_image = None
+        self.image_path = None
+        self.undo_stack = deque(maxlen=20)
+        self.redo_stack = deque(maxlen=20)
+        self.zoom_factor = 1.0
+        self.drawing_mode = False
+        self.draw_color = '#000000'
+        self.brush_size = 5
+        self.last_x = None
+        self.last_y = None
+        
+        # Create UI
+        self.create_ui()
+        self.center_window()
+        
+    def center_window(self):
+        """Center the window on screen"""
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
+        
+    def create_ui(self):
+        """Create the main user interface"""
+        # Main container
+        main_frame = tk.Frame(self.root, bg='#2c3e50')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Top toolbar
+        self.create_toolbar(main_frame)
+        
+        # Content area
+        content_frame = tk.Frame(main_frame, bg='#2c3e50')
+        content_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        
+        # Left panel (tools)
+        self.create_left_panel(content_frame)
+        
+        # Center (canvas)
+        self.create_canvas_area(content_frame)
+        
+        # Right panel (properties)
+        self.create_right_panel(content_frame)
+        
+        # Status bar
+        self.create_status_bar(main_frame)
+        
+        # Bind keyboard shortcuts
+        self.root.bind('<Control-o>', lambda e: self.open_image())
+        self.root.bind('<Control-s>', lambda e: self.save_image())
+        self.root.bind('<Control-z>', lambda e: self.undo())
+        self.root.bind('<Control-y>', lambda e: self.redo())
+        self.root.bind('<Control-plus>', lambda e: self.zoom_in())
+        self.root.bind('<Control-minus>', lambda e: self.zoom_out())
+        
+    def create_toolbar(self, parent):
+        """Create the top toolbar"""
+        toolbar = tk.Frame(parent, bg='#34495e', height=60)
+        toolbar.pack(fill=tk.X, pady=(0, 10))
+        toolbar.pack_propagate(False)
+        
+        # File operations
+        file_frame = tk.Frame(toolbar, bg='#34495e')
+        file_frame.pack(side=tk.LEFT, padx=10, pady=10)
+        
+        self.create_button(file_frame, "📁 Open", self.open_image, "#3498db")
+        self.create_button(file_frame, "💾 Save", self.save_image, "#27ae60")
+        self.create_button(file_frame, "💾 Save As", self.save_as_image, "#27ae60")
+        
+        # Edit operations
+        edit_frame = tk.Frame(toolbar, bg='#34495e')
+        edit_frame.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        self.create_button(edit_frame, "↶ Undo", self.undo, "#e67e22")
+        self.create_button(edit_frame, "↷ Redo", self.redo, "#e67e22")
+        
+        # Zoom controls
+        zoom_frame = tk.Frame(toolbar, bg='#34495e')
+        zoom_frame.pack(side=tk.RIGHT, padx=10, pady=10)
+        
+        self.create_button(zoom_frame, "🔍+", self.zoom_in, "#9b59b6")
+        self.create_button(zoom_frame, "🔍-", self.zoom_out, "#9b59b6")
+        self.create_button(zoom_frame, "🔍 Fit", self.fit_to_window, "#9b59b6")
+        
+    def create_button(self, parent, text, command, color="#34495e"):
+        """Create a styled button"""
+        btn = tk.Button(parent, text=text, command=command, 
+                       bg=color, fg='white', font=('Arial', 10, 'bold'),
+                       relief=tk.FLAT, padx=15, pady=5, cursor='hand2')
+        btn.pack(side=tk.LEFT, padx=2)
+        
+        # Hover effects
+        def on_enter(e):
+            btn.configure(bg=self.lighten_color(color))
+        def on_leave(e):
+            btn.configure(bg=color)
+            
+        btn.bind('<Enter>', on_enter)
+        btn.bind('<Leave>', on_leave)
+        return btn
+        
+    def lighten_color(self, color):
+        """Lighten a hex color"""
+        color = color.lstrip('#')
+        rgb = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+        rgb = tuple(min(255, int(c * 1.2)) for c in rgb)
+        return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+        
+    def create_left_panel(self, parent):
+        """Create the left tool panel"""
+        left_panel = tk.Frame(parent, bg='#34495e', width=200)
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        left_panel.pack_propagate(False)
+        
+        # Create scrollable frame for tools
+        canvas_tools = tk.Canvas(left_panel, bg='#34495e', highlightthickness=0)
+        scrollbar_tools = ttk.Scrollbar(left_panel, orient="vertical", command=canvas_tools.yview)
+        scrollable_frame = tk.Frame(canvas_tools, bg='#34495e')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas_tools.configure(scrollregion=canvas_tools.bbox("all"))
+        )
+        
+        canvas_tools.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas_tools.configure(yscrollcommand=scrollbar_tools.set)
+        
+        # Tools section
+        tools_label = tk.Label(scrollable_frame, text="🛠️ TOOLS", bg='#34495e', 
+                              fg='white', font=('Arial', 12, 'bold'))
+        tools_label.pack(pady=10)
+        
+        # Basic tools
+        self.create_tool_button(scrollable_frame, "✂️ Crop", self.crop_tool)
+        self.create_tool_button(scrollable_frame, "🔄 Rotate", self.rotate_tool)
+        self.create_tool_button(scrollable_frame, "🖌️ Draw", self.toggle_draw_mode)
+        self.create_tool_button(scrollable_frame, "🎨 Color Picker", self.choose_draw_color)
+        
+        # Separator
+        separator = tk.Frame(scrollable_frame, height=2, bg='#2c3e50')
+        separator.pack(fill=tk.X, pady=10, padx=10)
+        
+        # Filters section
+        filters_label = tk.Label(scrollable_frame, text="🎭 FILTERS", bg='#34495e', 
+                                fg='white', font=('Arial', 12, 'bold'))
+        filters_label.pack(pady=10)
+        
+        self.create_tool_button(scrollable_frame, "⚫ Grayscale", self.apply_grayscale)
+        self.create_tool_button(scrollable_frame, "📸 Sepia", self.apply_sepia)
+        self.create_tool_button(scrollable_frame, "🔄 Invert", self.apply_invert)
+        self.create_tool_button(scrollable_frame, "✨ Blur", self.apply_blur)
+        self.create_tool_button(scrollable_frame, "🔍 Sharpen", self.apply_sharpen)
+        self.create_tool_button(scrollable_frame, "🌟 Emboss", self.apply_emboss)
+        
+        # Separator
+        separator2 = tk.Frame(scrollable_frame, height=2, bg='#2c3e50')
+        separator2.pack(fill=tk.X, pady=10, padx=10)
+        
+        # Transform section
+        transform_label = tk.Label(scrollable_frame, text="🔄 TRANSFORM", bg='#34495e', 
+                                  fg='white', font=('Arial', 12, 'bold'))
+        transform_label.pack(pady=10)
+        
+        self.create_tool_button(scrollable_frame, "↔️ Flip H", self.flip_horizontal)
+        self.create_tool_button(scrollable_frame, "↕️ Flip V", self.flip_vertical)
+        self.create_tool_button(scrollable_frame, "🔄 Rotate 90°", self.rotate_90)
+        self.create_tool_button(scrollable_frame, "🔄 Rotate 180°", self.rotate_180)
+        self.create_tool_button(scrollable_frame, "🔄 Rotate 270°", self.rotate_270)
+        self.create_tool_button(scrollable_frame, "🔄 Transpose", self.transpose_image)
+        
+        # Pack the canvas and scrollbar
+        canvas_tools.pack(side="left", fill="both", expand=True)
+        scrollbar_tools.pack(side="right", fill="y")
+        
+    def create_tool_button(self, parent, text, command):
+        """Create a tool button"""
+        btn = tk.Button(parent, text=text, command=command,
+                       bg='#3498db', fg='white', font=('Arial', 10),
+                       relief=tk.FLAT, pady=8, cursor='hand2')
+        btn.pack(fill=tk.X, padx=10, pady=2)
+        
+        def on_enter(e):
+            btn.configure(bg='#2980b9')
+        def on_leave(e):
+            btn.configure(bg='#3498db')
+            
+        btn.bind('<Enter>', on_enter)
+        btn.bind('<Leave>', on_leave)
+        return btn
+        
+    def create_canvas_area(self, parent):
+        """Create the main canvas area"""
+        canvas_frame = tk.Frame(parent, bg='#ecf0f1', relief=tk.SUNKEN, bd=2)
+        canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Canvas with scrollbars
+        self.canvas = tk.Canvas(canvas_frame, bg='white', cursor='crosshair')
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        h_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        
+        self.canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack scrollbars and canvas
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Bind mouse events for drawing
+        self.canvas.bind('<Button-1>', self.start_draw)
+        self.canvas.bind('<B1-Motion>', self.draw)
+        self.canvas.bind('<ButtonRelease-1>', self.end_draw)
+        
+    def create_right_panel(self, parent):
+        """Create the right properties panel"""
+        right_panel = tk.Frame(parent, bg='#34495e', width=250)
+        right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        right_panel.pack_propagate(False)
+        
+        # Properties section
+        props_label = tk.Label(right_panel, text="⚙️ PROPERTIES", bg='#34495e', 
+                              fg='white', font=('Arial', 12, 'bold'))
+        props_label.pack(pady=10)
+        
+        # Image info
+        self.info_frame = tk.Frame(right_panel, bg='#34495e')
+        self.info_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.size_label = tk.Label(self.info_frame, text="Size: No image", 
+                                  bg='#34495e', fg='white', font=('Arial', 9))
+        self.size_label.pack(anchor=tk.W)
+        
+        self.format_label = tk.Label(self.info_frame, text="Format: -", 
+                                    bg='#34495e', fg='white', font=('Arial', 9))
+        self.format_label.pack(anchor=tk.W)
+        
+        # Separator
+        separator = tk.Frame(right_panel, height=2, bg='#2c3e50')
+        separator.pack(fill=tk.X, pady=10, padx=10)
+        
+        # Adjustments
+        adj_label = tk.Label(right_panel, text="🎛️ ADJUSTMENTS", bg='#34495e', 
+                            fg='white', font=('Arial', 12, 'bold'))
+        adj_label.pack(pady=10)
+        
+        # Brightness
+        self.create_slider(right_panel, "Brightness", -100, 100, 0, self.adjust_brightness)
+        
+        # Contrast
+        self.create_slider(right_panel, "Contrast", -100, 100, 0, self.adjust_contrast)
+        
+        # Saturation
+        self.create_slider(right_panel, "Saturation", -100, 100, 0, self.adjust_saturation)
+        
+        # Drawing tools
+        draw_label = tk.Label(right_panel, text="✏️ DRAWING", bg='#34495e', 
+                             fg='white', font=('Arial', 12, 'bold'))
+        draw_label.pack(pady=(20, 10))
+        
+        # Brush size
+        brush_frame = tk.Frame(right_panel, bg='#34495e')
+        brush_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        tk.Label(brush_frame, text="Brush Size:", bg='#34495e', fg='white').pack(anchor=tk.W)
+        self.brush_scale = tk.Scale(brush_frame, from_=1, to=20, orient=tk.HORIZONTAL,
+                                   bg='#34495e', fg='white', highlightthickness=0,
+                                   command=self.update_brush_size)
+        self.brush_scale.set(5)
+        self.brush_scale.pack(fill=tk.X)
+        
+        # Color display
+        color_frame = tk.Frame(right_panel, bg='#34495e')
+        color_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        tk.Label(color_frame, text="Color:", bg='#34495e', fg='white').pack(anchor=tk.W)
+        self.color_display = tk.Frame(color_frame, bg=self.draw_color, height=30, relief=tk.RAISED, bd=2)
+        self.color_display.pack(fill=tk.X, pady=5)
+        
+    def create_slider(self, parent, label, min_val, max_val, default, command):
+        """Create a labeled slider"""
+        frame = tk.Frame(parent, bg='#34495e')
+        frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        tk.Label(frame, text=f"{label}:", bg='#34495e', fg='white').pack(anchor=tk.W)
+        
+        slider = tk.Scale(frame, from_=min_val, to=max_val, orient=tk.HORIZONTAL,
+                         bg='#34495e', fg='white', highlightthickness=0,
+                         command=lambda val: command(int(val)))
+        slider.set(default)
+        slider.pack(fill=tk.X)
+        
+        return slider
+        
+    def create_status_bar(self, parent):
+        """Create the status bar"""
+        self.status_bar = tk.Label(parent, text="Ready", relief=tk.SUNKEN, 
+                                  bg='#ecf0f1', fg='#2c3e50', anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+        
+    def update_status(self, message):
+        """Update status bar message"""
+        self.status_bar.config(text=message)
+        self.root.after(3000, lambda: self.status_bar.config(text="Ready"))
+        
+    def open_image(self):
+        """Open an image file"""
+        file_path = filedialog.askopenfilename(
+            title="Open Image",
+            filetypes=[
+                ("Image files", "*.jpg *.jpeg *.png *.bmp *.gif *.tiff"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("PNG files", "*.png"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                self.original_image = Image.open(file_path)
+                self.current_image = self.original_image.copy()
+                self.image_path = file_path
+                
+                # Clear undo/redo stacks
+                self.undo_stack.clear()
+                self.redo_stack.clear()
+                self.save_state()
+                
+                self.display_image_on_canvas()
+                self.update_image_info()
+                self.update_status(f"Opened: {os.path.basename(file_path)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open image: {str(e)}")
+                
+    def save_image(self):
+        """Save the current image"""
+        if not self.current_image:
+            messagebox.showwarning("Warning", "No image to save!")
+            return
+            
+        if not self.image_path:
+            self.save_as_image()
+            return
+            
+        try:
+            self.current_image.save(self.image_path)
+            self.update_status("Image saved successfully")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not save image: {str(e)}")
+            
+    def save_as_image(self):
+        """Save image with new name"""
+        if not self.current_image:
+            messagebox.showwarning("Warning", "No image to save!")
+            return
+            
+        file_path = filedialog.asksaveasfilename(
+            title="Save Image As",
+            defaultextension=".jpg",
+            filetypes=[
+                ("JPEG files", "*.jpg"),
+                ("PNG files", "*.png"),
+                ("BMP files", "*.bmp"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                self.current_image.save(file_path)
+                self.image_path = file_path
+                self.update_status(f"Saved as: {os.path.basename(file_path)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not save image: {str(e)}")
+                
+    def display_image_on_canvas(self):
+        """Display the current image on canvas"""
+        if not self.current_image:
+            return
+            
+        # Get canvas dimensions
+        self.canvas.update_idletasks()
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        if canvas_width <= 1 or canvas_height <= 1:
+            self.root.after(100, self.display_image_on_canvas)
+            return
+            
+        img_width, img_height = self.current_image.size
+        
+        # Calculate scale to fit image in canvas
+        scale_x = (canvas_width - 20) / img_width  # Leave some margin
+        scale_y = (canvas_height - 20) / img_height
+        scale = min(scale_x, scale_y, 1.0) * self.zoom_factor  # Don't upscale beyond 100% unless zoomed
+        
+        new_width = max(1, int(img_width * scale))
+        new_height = max(1, int(img_height * scale))
+        
+        # Resize image for display
+        try:
+            self.display_image = self.current_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            self.photo = ImageTk.PhotoImage(self.display_image)
+            
+            # Clear canvas and display image
+            self.canvas.delete("all")
+            
+            # Center the image
+            x = canvas_width // 2
+            y = canvas_height // 2
+            
+            self.canvas.create_image(x, y, image=self.photo, anchor=tk.CENTER)
+            
+            # Update scroll region
+            bbox = self.canvas.bbox("all")
+            if bbox:
+                self.canvas.configure(scrollregion=bbox)
+        except Exception as e:
+            print(f"Error displaying image: {e}")
+            self.update_status("Error displaying image")
+        
+    def update_image_info(self):
+        """Update image information display"""
+        if self.current_image:
+            width, height = self.current_image.size
+            self.size_label.config(text=f"Size: {width} × {height}")
+            self.format_label.config(text=f"Format: {self.current_image.format or 'Unknown'}")
         else:
-            resizedImage = im.resize((int(round(float(imageWidth) * canvas.data.height / imageHeight)),canvas.data.height))
-            canvas.data.imageScale = float(imageHeight) / canvas.data.height
-        canvas.data.resizedIm = resizedImage
-        return ImageTk.PhotoImage(resizedImage)
-def drawImage(canvas):
-    if canvas.data.image != None:
-        # make the canvas center and the image center the same
-        canvas.create_image(canvas.data.width / 2.0 - canvas.data.resizedIm.size[0] / 2.0,
-                            canvas.data.height / 2.0 - canvas.data.resizedIm.size[1] / 2.0,
-                            anchor=NW, image=canvas.data.imageForTk)
-        canvas.data.imageTopX = int(round(canvas.data.width / 2.0 - canvas.data.resizedIm.size[0] / 2.0))
-        canvas.data.imageTopY = int(round(canvas.data.height / 2.0 - canvas.data.resizedIm.size[1] / 2.0))
-def desktopBk(canvas):
-    if canvas.data.image != None:
-        new = canvas.data.image.copy()
-        newLocation = os.path.dirname( \
-            canvas.data.imageLocation) + "/desktopPhoto.bmp"
-        new.save(newLocation)
-        SPI_SETDESKWALLPAPER = 20
-        ctypes.windll.user32.SystemParametersInfoA(SPI_SETDESKWALLPAPER, 0, str(newLocation), 0)
-def init(root, canvas):
-    buttonsInit(root, canvas)
-    menuInit(root, canvas)
-    canvas.data.image = None
-    canvas.data.angleSelected = None
-    canvas.data.rotateWindowClose = False
-    canvas.data.brightnessWindowClose = False
-    canvas.data.brightnessLevel = None
-    canvas.data.histWindowClose = False
-    canvas.data.solarizeWindowClose = False
-    canvas.data.posterizeWindowClose = False
-    canvas.data.colourPopToHappen = False
-    canvas.data.cropPopToHappen = False
-    canvas.data.endCrop = False
-    canvas.data.drawOn = True
-    canvas.data.undoQueue = deque([], 10)
-    canvas.data.redoQueue = deque([], 10)
-    canvas.pack()
-def buttonsInit(root, canvas):
-    style = ttk.Style()
-    style.map("C.TButton",
-              foreground=[('pressed', 'red'), ('active', 'blue')],
-              background=[('pressed', '!disabled', 'black'), ('active', 'white')])
-    style.configure('TButton', font=('Comic Sans MS', 15),borderwidth='0.5')
-    buttonWidth = 14
-    buttonHeight = 2
-    toolKitFrame = Frame(root)
-    cropButton = ttk.Button(toolKitFrame, text="Crop", command=lambda: crop(canvas))
-    cropButton.grid(row=0, column=0)
-    rotateButton = ttk.Button(toolKitFrame, text="Rotate",command=lambda: rotate(canvas))
-    rotateButton.grid(row=1, column=0)
-    brightnessButton = ttk.Button(toolKitFrame, text="Brightness",command=lambda: brightness(canvas))
-    brightnessButton.grid(row=2, column=0)
-    histogramButton = ttk.Button(toolKitFrame, text="Histogram",command=lambda: histogram(canvas))
-    histogramButton.grid(row=3, column=0)
-    colourPopButton = ttk.Button(toolKitFrame, text="Colour Pop",command=lambda: colourPop(canvas))
-    colourPopButton.grid(row=4, column=0)
-    mirrorButton = ttk.Button(toolKitFrame, text="Mirror",command=lambda: mirror(canvas))
-    mirrorButton.grid(row=5, column=0)
-    flipButton = ttk.Button(toolKitFrame, text="Flip",command=lambda: flip(canvas))
-    flipButton.grid(row=6, column=0)
-    transposeButton = ttk.Button(toolKitFrame, text="Transpose",command=lambda: transpose(canvas))
-    transposeButton.grid(row=7, column=0)
-    drawButton = ttk.Button(toolKitFrame, text="Draw",command=lambda: drawOnImage(canvas))
-    drawButton.grid(row=8, column=0)
-    resetButton = ttk.Button(toolKitFrame, text="Reset",command=lambda: reset(canvas))
-    resetButton.grid(row=9, column=0)
-    toolKitFrame.pack(side=LEFT)
-def menuInit(root, canvas):
-    menubar = Menu(root)
-    menubar.add_command(label="New", command=lambda: newImage(canvas))
-    menubar.add_command(label="Save", command=lambda: save(canvas))
-    menubar.add_command(label="Save As", command=lambda: saveAs(canvas))
-    ## Edit pull-down Menu
-    editmenu = Menu(menubar, tearoff=0)
-    editmenu.add_command(label="Undo   Z", command=lambda: undo(canvas))
-    editmenu.add_command(label="Redo   Y", command=lambda: redo(canvas))
-    menubar.add_cascade(label="Edit", menu=editmenu)
-    root.config(menu=menubar)
-    filtermenu = Menu(menubar, tearoff=0)
-    filtermenu.add_command(label="Black and White", command=lambda: covertGray(canvas))
-    filtermenu.add_command(label="Sepia", command=lambda: sepia(canvas))
-    filtermenu.add_command(label="Invert", command=lambda: invert(canvas))
-    filtermenu.add_command(label="Solarize", command=lambda: solarize(canvas))
-    filtermenu.add_command(label="Posterize", command=lambda: posterize(canvas))
-    menubar.add_cascade(label="Filter", menu=filtermenu)
-    root.config(menu=menubar)
-def run():
-    root = Tk()
-    root.title("Ignora")
-    canvasWidth = 500
-    canvasHeight = 500
-    canvas = Canvas(root, width=canvasWidth, height=canvasHeight,background="#ffffff")
-    class Struct: pass
-    canvas.data = Struct()
-    canvas.data.width = canvasWidth
-    canvas.data.height = canvasHeight
-    canvas.data.mainWindow = root
-    init(root, canvas)
-    root.bind("<Key>", lambda event: keyPressed(canvas, event))
-    root.mainloop()
-run()
+            self.size_label.config(text="Size: No image")
+            self.format_label.config(text="Format: -")
+            
+    def save_state(self):
+        """Save current state to undo stack"""
+        if self.current_image:
+            self.undo_stack.append(self.current_image.copy())
+            self.redo_stack.clear()
+            
+    def undo(self):
+        """Undo last operation"""
+        if len(self.undo_stack) > 1:
+            self.redo_stack.append(self.undo_stack.pop())
+            self.current_image = self.undo_stack[-1].copy()
+            self.display_image_on_canvas()
+            self.update_status("Undo successful")
+            
+    def redo(self):
+        """Redo last undone operation"""
+        if self.redo_stack:
+            self.current_image = self.redo_stack.pop()
+            self.undo_stack.append(self.current_image.copy())
+            self.display_image_on_canvas()
+            self.update_status("Redo successful")
+            
+    def zoom_in(self):
+        """Zoom in"""
+        self.zoom_factor = min(self.zoom_factor * 1.2, 5.0)
+        self.display_image_on_canvas()
+        
+    def zoom_out(self):
+        """Zoom out"""
+        self.zoom_factor = max(self.zoom_factor / 1.2, 0.1)
+        self.display_image_on_canvas()
+        
+    def fit_to_window(self):
+        """Fit image to window"""
+        self.zoom_factor = 1.0
+        self.display_image_on_canvas()
+        
+    # Drawing functions
+    def toggle_draw_mode(self):
+        """Toggle drawing mode"""
+        self.drawing_mode = not self.drawing_mode
+        cursor = 'pencil' if self.drawing_mode else 'crosshair'
+        self.canvas.configure(cursor=cursor)
+        status = "Drawing mode ON" if self.drawing_mode else "Drawing mode OFF"
+        self.update_status(status)
+        
+    def choose_draw_color(self):
+        """Choose drawing color"""
+        color = colorchooser.askcolor(color=self.draw_color)[1]
+        if color:
+            self.draw_color = color
+            self.color_display.configure(bg=color)
+            
+    def update_brush_size(self, value):
+        """Update brush size"""
+        self.brush_size = int(value)
+        
+    def start_draw(self, event):
+        """Start drawing"""
+        if self.drawing_mode and self.current_image:
+            self.last_x = event.x
+            self.last_y = event.y
+            
+    def draw(self, event):
+        """Draw on image"""
+        if self.drawing_mode and self.current_image and self.last_x and self.last_y:
+            # Calculate position on actual image
+            canvas_width = self.canvas.winfo_width()
+            canvas_height = self.canvas.winfo_height()
+            
+            img_width, img_height = self.current_image.size
+            scale_x = canvas_width / img_width
+            scale_y = canvas_height / img_height
+            scale = min(scale_x, scale_y) * self.zoom_factor
+            
+            # Convert canvas coordinates to image coordinates
+            center_x = canvas_width // 2
+            center_y = canvas_height // 2
+            
+            img_x = int((event.x - center_x) / scale + img_width // 2)
+            img_y = int((event.y - center_y) / scale + img_height // 2)
+            last_img_x = int((self.last_x - center_x) / scale + img_width // 2)
+            last_img_y = int((self.last_y - center_y) / scale + img_height // 2)
+            
+            # Draw on the actual image
+            draw = ImageDraw.Draw(self.current_image)
+            draw.line([last_img_x, last_img_y, img_x, img_y], 
+                     fill=self.draw_color, width=self.brush_size)
+            
+            self.display_image_on_canvas()
+            
+            self.last_x = event.x
+            self.last_y = event.y
+            
+    def end_draw(self, event):
+        """End drawing"""
+        if self.drawing_mode:
+            self.save_state()
+            self.last_x = None
+            self.last_y = None
+            
+    # Filter functions
+    def apply_grayscale(self):
+        """Apply grayscale filter"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.convert('L').convert('RGB')
+            self.display_image_on_canvas()
+            self.update_status("Grayscale filter applied")
+            
+    def apply_sepia(self):
+        """Apply sepia filter"""
+        if self.current_image:
+            self.save_state()
+            # Convert to numpy array for easier manipulation
+            img_array = np.array(self.current_image)
+            
+            # Sepia transformation matrix
+            sepia_filter = np.array([
+                [0.393, 0.769, 0.189],
+                [0.349, 0.686, 0.168],
+                [0.272, 0.534, 0.131]
+            ])
+            
+            sepia_img = img_array.dot(sepia_filter.T)
+            sepia_img = np.clip(sepia_img, 0, 255).astype(np.uint8)
+            
+            self.current_image = Image.fromarray(sepia_img)
+            self.display_image_on_canvas()
+            self.update_status("Sepia filter applied")
+            
+    def apply_invert(self):
+        """Apply invert filter"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = ImageOps.invert(self.current_image)
+            self.display_image_on_canvas()
+            self.update_status("Invert filter applied")
+            
+    def apply_blur(self):
+        """Apply blur filter"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.filter(ImageFilter.BLUR)
+            self.display_image_on_canvas()
+            self.update_status("Blur filter applied")
+            
+    def apply_sharpen(self):
+        """Apply sharpen filter"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.filter(ImageFilter.SHARPEN)
+            self.display_image_on_canvas()
+            self.update_status("Sharpen filter applied")
+            
+    def apply_emboss(self):
+        """Apply emboss filter"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.filter(ImageFilter.EMBOSS)
+            self.display_image_on_canvas()
+            self.update_status("Emboss filter applied")
+            
+    # Transform functions
+    def flip_horizontal(self):
+        """Flip image horizontally"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            self.display_image_on_canvas()
+            self.update_status("Flipped horizontally")
+            
+    def flip_vertical(self):
+        """Flip image vertically"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            self.display_image_on_canvas()
+            self.update_status("Flipped vertically")
+            
+    def rotate_90(self):
+        """Rotate image 90 degrees"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.ROTATE_90)
+            self.display_image_on_canvas()
+            self.update_image_info()
+            self.update_status("Rotated 90°")
+            
+    def rotate_180(self):
+        """Rotate image 180 degrees"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.ROTATE_180)
+            self.display_image_on_canvas()
+    def rotate_270(self):
+        """Rotate image 270 degrees"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.ROTATE_270)
+            self.display_image_on_canvas()
+            self.update_image_info()
+            self.update_status("Rotated 270°")
+            
+    def transpose_image(self):
+        """Transpose image (swap width and height)"""
+        if self.current_image:
+            self.save_state()
+            self.current_image = self.current_image.transpose(Image.Transpose.TRANSPOSE)
+            self.display_image_on_canvas()
+            self.update_image_info()
+            self.update_status("Image transposed")
+            
+    # Adjustment functions
+    def adjust_brightness(self, value):
+        """Adjust image brightness"""
+        if self.current_image and value != 0:
+            enhancer = ImageEnhance.Brightness(self.original_image)
+            factor = 1.0 + (value / 100.0)
+            self.current_image = enhancer.enhance(factor)
+            self.display_image_on_canvas()
+            
+    def adjust_contrast(self, value):
+        """Adjust image contrast"""
+        if self.current_image and value != 0:
+            enhancer = ImageEnhance.Contrast(self.original_image)
+            factor = 1.0 + (value / 100.0)
+            self.current_image = enhancer.enhance(factor)
+            self.display_image_on_canvas()
+            
+    def adjust_saturation(self, value):
+        """Adjust image saturation"""
+        if self.current_image and value != 0:
+            enhancer = ImageEnhance.Color(self.original_image)
+            factor = 1.0 + (value / 100.0)
+            self.current_image = enhancer.enhance(factor)
+            self.display_image_on_canvas()
+            
+    # Tool functions
+    def crop_tool(self):
+        """Activate crop tool"""
+        if not self.current_image:
+            messagebox.showwarning("Warning", "No image loaded!")
+            return
+            
+        self.update_status("Crop tool: Click and drag to select area, then press SPACE to crop")
+        
+        # Crop variables
+        self.crop_start_x = None
+        self.crop_start_y = None
+        self.crop_rect = None
+        self.crop_active = True
+        
+        def start_crop(event):
+            if not self.crop_active:
+                return
+            self.crop_start_x = self.canvas.canvasx(event.x)
+            self.crop_start_y = self.canvas.canvasy(event.y)
+            
+        def draw_crop_rect(event):
+            if not self.crop_active or self.crop_start_x is None:
+                return
+            if self.crop_rect:
+                self.canvas.delete(self.crop_rect)
+            
+            current_x = self.canvas.canvasx(event.x)
+            current_y = self.canvas.canvasy(event.y)
+            
+            self.crop_rect = self.canvas.create_rectangle(
+                self.crop_start_x, self.crop_start_y, current_x, current_y,
+                outline='red', width=2, dash=(5, 5))
+                
+        def perform_crop(event):
+            if not self.crop_active or not self.crop_rect:
+                return
+                
+            try:
+                # Get crop coordinates
+                coords = self.canvas.coords(self.crop_rect)
+                
+                # Get canvas dimensions and image position
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+                
+                img_width, img_height = self.current_image.size
+                
+                # Calculate scale and position
+                scale_x = canvas_width / img_width
+                scale_y = canvas_height / img_height
+                scale = min(scale_x, scale_y) * self.zoom_factor
+                
+                # Calculate image position on canvas
+                scaled_width = int(img_width * scale)
+                scaled_height = int(img_height * scale)
+                img_x = (canvas_width - scaled_width) // 2
+                img_y = (canvas_height - scaled_height) // 2
+                
+                # Convert canvas coordinates to image coordinates
+                x1 = max(0, int((coords[0] - img_x) / scale))
+                y1 = max(0, int((coords[1] - img_y) / scale))
+                x2 = min(img_width, int((coords[2] - img_x) / scale))
+                y2 = min(img_height, int((coords[3] - img_y) / scale))
+                
+                # Ensure we have a valid crop area
+                if x2 > x1 and y2 > y1:
+                    self.save_state()
+                    self.current_image = self.current_image.crop((x1, y1, x2, y2))
+                    self.display_image_on_canvas()
+                    self.update_image_info()
+                    self.update_status("Image cropped successfully")
+                else:
+                    self.update_status("Invalid crop area")
+                
+                # Clean up
+                if self.crop_rect:
+                    self.canvas.delete(self.crop_rect)
+                    self.crop_rect = None
+                self.crop_active = False
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not crop image: {str(e)}")
+                self.crop_active = False
+                
+        def cancel_crop(event):
+            if self.crop_rect:
+                self.canvas.delete(self.crop_rect)
+                self.crop_rect = None
+            self.crop_active = False
+            self.update_status("Crop cancelled")
+            
+        # Bind events temporarily
+        self.canvas.bind('<Button-1>', start_crop)
+        self.canvas.bind('<B1-Motion>', draw_crop_rect)
+        self.root.bind('<space>', perform_crop)
+        self.root.bind('<Escape>', cancel_crop)
+        
+        # Set focus to root to capture key events
+        self.root.focus_set()
+        
+    def rotate_tool(self):
+        """Open rotate tool window"""
+        if not self.current_image:
+            messagebox.showwarning("Warning", "No image loaded!")
+            return
+            
+        # Create rotate window
+        rotate_window = tk.Toplevel(self.root)
+        rotate_window.title("Rotate Image")
+        rotate_window.geometry("350x250")
+        rotate_window.configure(bg='#34495e')
+        rotate_window.resizable(False, False)
+        
+        # Center the window
+        rotate_window.transient(self.root)
+        rotate_window.grab_set()
+        
+        # Title
+        title_label = tk.Label(rotate_window, text="Rotate Image", 
+                              bg='#34495e', fg='white', font=('Arial', 14, 'bold'))
+        title_label.pack(pady=20)
+        
+        # Angle slider
+        angle_frame = tk.Frame(rotate_window, bg='#34495e')
+        angle_frame.pack(pady=20)
+        
+        tk.Label(angle_frame, text="Angle (degrees):", 
+                bg='#34495e', fg='white', font=('Arial', 11)).pack()
+        
+        angle_var = tk.IntVar()
+        angle_scale = tk.Scale(angle_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+                              variable=angle_var, bg='#34495e', fg='white',
+                              highlightthickness=0, length=250, 
+                              activebackground='#3498db', troughcolor='#2c3e50')
+        angle_scale.pack(pady=10)
+        
+        # Current angle display
+        angle_display = tk.Label(angle_frame, text="0°", 
+                                bg='#34495e', fg='#3498db', font=('Arial', 12, 'bold'))
+        angle_display.pack()
+        
+        def update_angle_display(val):
+            angle_display.config(text=f"{val}°")
+            
+        angle_scale.config(command=update_angle_display)
+        
+        # Quick rotate buttons
+        quick_frame = tk.Frame(rotate_window, bg='#34495e')
+        quick_frame.pack(pady=10)
+        
+        tk.Label(quick_frame, text="Quick Rotate:", 
+                bg='#34495e', fg='white', font=('Arial', 10)).pack()
+        
+        quick_buttons_frame = tk.Frame(quick_frame, bg='#34495e')
+        quick_buttons_frame.pack(pady=5)
+        
+        def set_angle(angle):
+            angle_scale.set(angle)
+            
+        tk.Button(quick_buttons_frame, text="90°", command=lambda: set_angle(90),
+                 bg='#3498db', fg='white', font=('Arial', 9), width=6).pack(side=tk.LEFT, padx=2)
+        tk.Button(quick_buttons_frame, text="180°", command=lambda: set_angle(180),
+                 bg='#3498db', fg='white', font=('Arial', 9), width=6).pack(side=tk.LEFT, padx=2)
+        tk.Button(quick_buttons_frame, text="270°", command=lambda: set_angle(270),
+                 bg='#3498db', fg='white', font=('Arial', 9), width=6).pack(side=tk.LEFT, padx=2)
+        
+        # Buttons
+        button_frame = tk.Frame(rotate_window, bg='#34495e')
+        button_frame.pack(pady=20)
+        
+        def apply_rotation():
+            angle = angle_var.get()
+            if angle != 0:
+                try:
+                    self.save_state()
+                    # Use expand=True to avoid cutting off parts of the image
+                    self.current_image = self.current_image.rotate(-angle, expand=True, fillcolor='white')
+                    self.display_image_on_canvas()
+                    self.update_image_info()
+                    self.update_status(f"Rotated by {angle}°")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Could not rotate image: {str(e)}")
+            rotate_window.destroy()
+            
+        def preview_rotation():
+            angle = angle_var.get()
+            if angle != 0:
+                try:
+                    preview_img = self.current_image.rotate(-angle, expand=True, fillcolor='white')
+                    # Temporarily show preview
+                    temp_current = self.current_image
+                    self.current_image = preview_img
+                    self.display_image_on_canvas()
+                    # Restore after 1 second
+                    self.root.after(1000, lambda: self.restore_from_preview(temp_current))
+                except Exception as e:
+                    messagebox.showerror("Error", f"Could not preview rotation: {str(e)}")
+                    
+        def restore_from_preview(original):
+            self.current_image = original
+            self.display_image_on_canvas()
+            
+        tk.Button(button_frame, text="Preview", command=preview_rotation,
+                 bg='#f39c12', fg='white', font=('Arial', 10), padx=15, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Apply", command=apply_rotation,
+                 bg='#27ae60', fg='white', font=('Arial', 10), padx=15, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Cancel", command=rotate_window.destroy,
+                 bg='#e74c3c', fg='white', font=('Arial', 10), padx=15, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+                 
+    def reset_adjustments(self):
+        """Reset all adjustments to original image"""
+        if self.original_image:
+            self.save_state()
+            self.current_image = self.original_image.copy()
+            self.display_image_on_canvas()
+            self.update_status("Reset to original image")
+            
+    def create_new_image(self):
+        """Create a new blank image"""
+        # Create new image dialog
+        new_window = tk.Toplevel(self.root)
+        new_window.title("New Image")
+        new_window.geometry("300x250")
+        new_window.configure(bg='#34495e')
+        
+        # Title
+        title_label = tk.Label(new_window, text="Create New Image", 
+                              bg='#34495e', fg='white', font=('Arial', 14, 'bold'))
+        title_label.pack(pady=20)
+        
+        # Size inputs
+        size_frame = tk.Frame(new_window, bg='#34495e')
+        size_frame.pack(pady=20)
+        
+        tk.Label(size_frame, text="Width:", bg='#34495e', fg='white').grid(row=0, column=0, padx=5, pady=5)
+        width_entry = tk.Entry(size_frame, width=10)
+        width_entry.insert(0, "800")
+        width_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        tk.Label(size_frame, text="Height:", bg='#34495e', fg='white').grid(row=1, column=0, padx=5, pady=5)
+        height_entry = tk.Entry(size_frame, width=10)
+        height_entry.insert(0, "600")
+        height_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        # Color selection
+        color_frame = tk.Frame(new_window, bg='#34495e')
+        color_frame.pack(pady=10)
+        
+        tk.Label(color_frame, text="Background:", bg='#34495e', fg='white').pack()
+        
+        color_var = tk.StringVar(value="white")
+        color_options = [("White", "white"), ("Black", "black"), ("Transparent", "transparent")]
+        
+        for text, value in color_options:
+            tk.Radiobutton(color_frame, text=text, variable=color_var, value=value,
+                          bg='#34495e', fg='white', selectcolor='#34495e').pack(anchor=tk.W)
+        
+        # Buttons
+        button_frame = tk.Frame(new_window, bg='#34495e')
+        button_frame.pack(pady=20)
+        
+        def create_image():
+            try:
+                width = int(width_entry.get())
+                height = int(height_entry.get())
+                color = color_var.get()
+                
+                if width <= 0 or height <= 0:
+                    messagebox.showerror("Error", "Width and height must be positive numbers!")
+                    return
+                    
+                if color == "transparent":
+                    self.current_image = Image.new('RGBA', (width, height), (255, 255, 255, 0))
+                else:
+                    self.current_image = Image.new('RGB', (width, height), color)
+                
+                self.original_image = self.current_image.copy()
+                self.image_path = None
+                
+                # Clear undo/redo stacks
+                self.undo_stack.clear()
+                self.redo_stack.clear()
+                self.save_state()
+                
+                self.display_image_on_canvas()
+                self.update_image_info()
+                self.update_status(f"Created new {width}×{height} image")
+                new_window.destroy()
+                
+            except ValueError:
+                messagebox.showerror("Error", "Please enter valid numbers for width and height!")
+                
+        tk.Button(button_frame, text="Create", command=create_image,
+                 bg='#27ae60', fg='white', font=('Arial', 10), padx=20).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Cancel", command=new_window.destroy,
+                 bg='#e74c3c', fg='white', font=('Arial', 10), padx=20).pack(side=tk.LEFT, padx=5)
+                 
+    def show_image_info(self):
+        """Show detailed image information"""
+        if not self.current_image:
+            messagebox.showwarning("Warning", "No image loaded!")
+            return
+            
+        # Create info window
+        info_window = tk.Toplevel(self.root)
+        info_window.title("Image Information")
+        info_window.geometry("400x300")
+        info_window.configure(bg='#34495e')
+        
+        # Title
+        title_label = tk.Label(info_window, text="Image Information", 
+                              bg='#34495e', fg='white', font=('Arial', 14, 'bold'))
+        title_label.pack(pady=20)
+        
+        # Information frame
+        info_frame = tk.Frame(info_window, bg='#34495e')
+        info_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Get image info
+        width, height = self.current_image.size
+        mode = self.current_image.mode
+        format_name = self.current_image.format or "Unknown"
+        
+        # Calculate file size if image is saved
+        file_size = "Unknown"
+        if self.image_path and os.path.exists(self.image_path):
+            size_bytes = os.path.getsize(self.image_path)
+            if size_bytes < 1024:
+                file_size = f"{size_bytes} bytes"
+            elif size_bytes < 1024 * 1024:
+                file_size = f"{size_bytes / 1024:.1f} KB"
+            else:
+                file_size = f"{size_bytes / (1024 * 1024):.1f} MB"
+        
+        # Display information
+        info_items = [
+            ("Filename:", os.path.basename(self.image_path) if self.image_path else "Untitled"),
+            ("Dimensions:", f"{width} × {height} pixels"),
+            ("Color Mode:", mode),
+            ("Format:", format_name),
+            ("File Size:", file_size),
+            ("Aspect Ratio:", f"{width/height:.2f}:1"),
+        ]
+        
+        for i, (label, value) in enumerate(info_items):
+            tk.Label(info_frame, text=label, bg='#34495e', fg='#bdc3c7', 
+                    font=('Arial', 10), anchor=tk.W).grid(row=i, column=0, sticky=tk.W, pady=5)
+            tk.Label(info_frame, text=value, bg='#34495e', fg='white', 
+                    font=('Arial', 10, 'bold'), anchor=tk.W).grid(row=i, column=1, sticky=tk.W, padx=(20, 0), pady=5)
+                    
+    def run(self):
+        """Start the application"""
+        # Add menu bar
+        self.create_menu_bar()
+        
+        # Start the main loop
+        self.root.mainloop()
+        
+    def create_menu_bar(self):
+        """Create the menu bar"""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="New...", command=self.create_new_image, accelerator="Ctrl+N")
+        file_menu.add_command(label="Open...", command=self.open_image, accelerator="Ctrl+O")
+        file_menu.add_separator()
+        file_menu.add_command(label="Save", command=self.save_image, accelerator="Ctrl+S")
+        file_menu.add_command(label="Save As...", command=self.save_as_image, accelerator="Ctrl+Shift+S")
+        file_menu.add_separator()
+        file_menu.add_command(label="Image Info...", command=self.show_image_info)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
+        
+        # Edit menu
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label="Undo", command=self.undo, accelerator="Ctrl+Z")
+        edit_menu.add_command(label="Redo", command=self.redo, accelerator="Ctrl+Y")
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Reset to Original", command=self.reset_adjustments)
+        
+        # View menu
+        view_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="View", menu=view_menu)
+        view_menu.add_command(label="Zoom In", command=self.zoom_in, accelerator="Ctrl++")
+        view_menu.add_command(label="Zoom Out", command=self.zoom_out, accelerator="Ctrl+-")
+        view_menu.add_command(label="Fit to Window", command=self.fit_to_window, accelerator="Ctrl+0")
+        
+        # Tools menu
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Crop", command=self.crop_tool)
+        tools_menu.add_command(label="Rotate", command=self.rotate_tool)
+        tools_menu.add_command(label="Drawing Mode", command=self.toggle_draw_mode)
+        
+        # Filters menu
+        filters_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Filters", menu=filters_menu)
+        filters_menu.add_command(label="Grayscale", command=self.apply_grayscale)
+        filters_menu.add_command(label="Sepia", command=self.apply_sepia)
+        filters_menu.add_command(label="Invert", command=self.apply_invert)
+        filters_menu.add_separator()
+        filters_menu.add_command(label="Blur", command=self.apply_blur)
+        filters_menu.add_command(label="Sharpen", command=self.apply_sharpen)
+        filters_menu.add_command(label="Emboss", command=self.apply_emboss)
+        
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Keyboard Shortcuts", command=self.show_shortcuts)
+        help_menu.add_command(label="About", command=self.show_about)
+        
+        # Bind additional keyboard shortcuts
+        self.root.bind('<Control-n>', lambda e: self.create_new_image())
+        self.root.bind('<Control-Shift-S>', lambda e: self.save_as_image())
+        self.root.bind('<Control-0>', lambda e: self.fit_to_window())
+        
+    def show_shortcuts(self):
+        """Show keyboard shortcuts"""
+        shortcuts_window = tk.Toplevel(self.root)
+        shortcuts_window.title("Keyboard Shortcuts")
+        shortcuts_window.geometry("400x500")
+        shortcuts_window.configure(bg='#34495e')
+        
+        # Title
+        title_label = tk.Label(shortcuts_window, text="Keyboard Shortcuts", 
+                              bg='#34495e', fg='white', font=('Arial', 14, 'bold'))
+        title_label.pack(pady=20)
+        
+        # Shortcuts frame
+        shortcuts_frame = tk.Frame(shortcuts_window, bg='#34495e')
+        shortcuts_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        shortcuts = [
+            ("File Operations", ""),
+            ("Ctrl + N", "New Image"),
+            ("Ctrl + O", "Open Image"),
+            ("Ctrl + S", "Save"),
+            ("Ctrl + Shift + S", "Save As"),
+            ("", ""),
+            ("Edit Operations", ""),
+            ("Ctrl + Z", "Undo"),
+            ("Ctrl + Y", "Redo"),
+            ("", ""),
+            ("View Operations", ""),
+            ("Ctrl + +", "Zoom In"),
+            ("Ctrl + -", "Zoom Out"),
+            ("Ctrl + 0", "Fit to Window"),
+        ]
+        
+        for i, (shortcut, description) in enumerate(shortcuts):
+            if shortcut == "" and description == "":
+                continue
+            elif description == "":
+                # Section header
+                tk.Label(shortcuts_frame, text=shortcut, bg='#34495e', fg='#3498db', 
+                        font=('Arial', 11, 'bold'), anchor=tk.W).grid(row=i, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+            else:
+                tk.Label(shortcuts_frame, text=shortcut, bg='#34495e', fg='#bdc3c7', 
+                        font=('Arial', 10), anchor=tk.W).grid(row=i, column=0, sticky=tk.W, pady=2)
+                tk.Label(shortcuts_frame, text=description, bg='#34495e', fg='white', 
+                        font=('Arial', 10), anchor=tk.W).grid(row=i, column=1, sticky=tk.W, padx=(20, 0), pady=2)
+                        
+    def show_about(self):
+        """Show about dialog"""
+        about_window = tk.Toplevel(self.root)
+        about_window.title("About Ignora Pro")
+        about_window.geometry("350x300")
+        about_window.configure(bg='#34495e')
+        
+        # Title
+        title_label = tk.Label(about_window, text="Ignora Pro", 
+                              bg='#34495e', fg='white', font=('Arial', 18, 'bold'))
+        title_label.pack(pady=20)
+        
+        # Version
+        version_label = tk.Label(about_window, text="Version 2.0", 
+                                bg='#34495e', fg='#bdc3c7', font=('Arial', 12))
+        version_label.pack(pady=5)
+        
+        # Description
+        desc_label = tk.Label(about_window, 
+                             text="A modern, feature-rich image editor\nbuilt with Python and Tkinter",
+                             bg='#34495e', fg='white', font=('Arial', 11), justify=tk.CENTER)
+        desc_label.pack(pady=20)
+        
+        # Features
+        features_label = tk.Label(about_window, 
+                                 text="Features:\n• Image editing and filters\n• Drawing tools\n• Crop and rotate\n• Undo/Redo support\n• Modern UI",
+                                 bg='#34495e', fg='#bdc3c7', font=('Arial', 10), justify=tk.LEFT)
+        features_label.pack(pady=20)
+        
+        # Close button
+        tk.Button(about_window, text="Close", command=about_window.destroy,
+                 bg='#3498db', fg='white', font=('Arial', 10), padx=20).pack(pady=20)
 
 
-
-
-
-
-
-
-
+# Main execution
+if __name__ == "__main__":
+    try:
+        app = ImageEditor()
+        app.run()
+    except Exception as e:
+        print(f"Error starting application: {e}")
+        import traceback
+        traceback.print_exc()
